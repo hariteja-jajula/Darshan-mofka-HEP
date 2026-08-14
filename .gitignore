@@ -1,0 +1,55 @@
+# Build outputs
+**/install/
+**/install-mpi/
+**/_build/
+**/_build-mpi/
+**/_build_util/
+**/_build*/
+*.o
+*.a
+*.so
+*.so.*
+*.lo
+*.la
+.libs/
+
+# Autotools generated (kept minimal; regenerate with autoreconf -fi)
+**/config.status
+**/config.log
+**/autom4te.cache/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+**/_venv/
+**/_dlio_venv/
+
+# Spack / Mofka build trees (recipe is kept; outputs are not)
+install/_spack/
+install/_mofka/
+server/spack/opt/
+server/spack/.spack-env/
+server/spack/*.log
+
+# Large / external artifacts
+*.sif
+workloads/HEP/salt-dev.sif
+
+# Run outputs
+results/
+server/_broker*
+server/_wl_hostfile*
+server/_flowcept_run*
+server/_mongo_env/
+**/logs/
+**/darshan_logs/
+*.darshan
+
+# Coredumps (numbered only — never core.py/core.h source)
+core.[0-9]*
+
+# Editor / OS
+*.swp
+.DS_Store

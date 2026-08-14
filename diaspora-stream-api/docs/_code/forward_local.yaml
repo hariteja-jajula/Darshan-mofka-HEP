@@ -1,0 +1,11 @@
+# START BASIC CONFIG
+drivers:
+  local:
+    type: files
+    options:
+      root_path: /tmp/my-data
+
+forward:
+  - from: local/source-topic
+    to:   local/dest-topic
+# END BASIC CONFIG

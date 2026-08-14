@@ -1,0 +1,151 @@
+# See COPYRIGHT notice in top-level directory.
+#
+# @configure_input@
+
+AM_CPPFLAGS = -I${top_srcdir}/../include
+
+if ENABLE_LDPRELOAD
+   lib_LTLIBRARIES = libdarshan.la
+endif
+if ENABLE_STATIC
+   lib_LIBRARIES = libdarshan.a
+endif
+
+BUILT_SOURCES =
+
+C_SRCS = darshan-core-init-finalize.c \
+         darshan-core.c \
+         darshan-common.c \
+         darshan-config.c \
+         darshan-ldms.c \
+         darshan-mofka.c \
+         lookup3.c \
+         lookup8.c
+
+if BUILD_NULL_MODULE
+   C_SRCS += darshan-null.c
+endif
+
+if BUILD_POSIX_MODULE
+   C_SRCS += darshan-posix.c
+endif
+
+if BUILD_STDIO_MODULE
+   C_SRCS += darshan-stdio.c
+endif
+
+if BUILD_DXT_MODULE
+   C_SRCS += darshan-dxt.c
+endif
+
+if BUILD_MPIIO_MODULE
+   C_SRCS += darshan-mpiio.c
+endif
+
+if BUILD_PNETCDF_MODULE
+   C_SRCS += darshan-pnetcdf.c
+   BUILT_SOURCES += darshan-pnetcdf-api.c
+endif
+
+if BUILD_HDF5_MODULE
+   C_SRCS += darshan-hdf5.c
+   AM_CPPFLAGS += -DDARSHAN_HDF5
+endif
+
+if BUILD_BGQ_MODULE
+   C_SRCS += darshan-bgq.c
+   AM_CPPFLAGS += -DDARSHAN_BGQ
+endif
+
+if BUILD_LUSTRE_MODULE
+   C_SRCS += darshan-lustre.c
+   AM_CPPFLAGS += -DDARSHAN_LUSTRE
+endif
+
+if BUILD_MDHIM_MODULE
+   C_SRCS += darshan-mdhim.c
+   AM_CPPFLAGS += -DDARSHAN_MDHIM
+endif
+
+if BUILD_HEATMAP_MODULE
+   C_SRCS += darshan-heatmap.c
+   AM_CPPFLAGS += -DDARSHAN_HEATMAP
+endif
+
+if BUILD_DAOS_MODULE
+   C_SRCS += darshan-dfs.c darshan-daos.c
+   AM_CPPFLAGS += -DDARSHAN_DAOS
+endif
+
+.m4.c:
+	$(M4) $(AM_M4FLAGS) $(M4FLAGS) $< >$@
+
+CLEANFILES = darshan-pnetcdf-api.c
+
+include_HEADERS =
+
+apmpi_root = $(top_srcdir)/../autoperf/apmpi
+if BUILD_APMPI_MODULE
+   include_HEADERS += $(apmpi_root)/darshan-apmpi-log-format.h
+   BUILT_SOURCES += darshan-apmpi.c
+   CLEANFILES += darshan-apmpi.c
+   C_SRCS += darshan-apmpi.c
+   AM_CPPFLAGS += -DDARSHAN_USE_APMPI \
+                  -I$(apmpi_root) -I$(apmpi_root)/lib
+endif
+
+darshan-apmpi.c:
+	$(LN_S) $(apmpi_root)/lib/darshan-apmpi.c .
+
+libdarshan_la_SOURCES  = $(C_SRCS)
+libdarshan_la_LIBADD   = -lpthread -lrt -lz -ldl $(DARSHAN_LUSTRE_LD_FLAGS)
+libdarshan_la_CPPFLAGS = $(AM_CPPFLAGS) -D_LARGEFILE64_SOURCE -DDARSHAN_PRELOAD
+
+libdarshan_a_SOURCES   = $(C_SRCS)
+libdarshan_a_CPPFLAGS  = $(AM_CPPFLAGS) -D_LARGEFILE64_SOURCE -DDARSHAN_WRAP_MMAP
+
+if HAVE_LDMS
+libdarshan_la_LIBADD += -lldmsd_stream -lldms -lovis_json -lcoll
+libdarshan_la_CPPFLAGS += -I$(LDMS_HOME)/include
+libdarshan_la_LDFLAGS = -L$(LDMS_HOME)/lib -Wl,-rpath=$(LDMS_HOME)/lib
+endif
+
+if HAVE_MOFKA
+libdarshan_la_LIBADD += $(MOFKA_LIBS)
+libdarshan_la_CPPFLAGS += $(MOFKA_CFLAGS)
+# The static library (used by the MPI build) also compiles darshan-mofka.c and
+# therefore needs the Mofka/diaspora-c include path; without this the MPI build
+# fails with "diaspora/diaspora_c.h: No such file or directory". (A static
+# archive takes no LIBADD; consumers link MOFKA_LIBS via darshan-config.)
+libdarshan_a_CPPFLAGS += $(MOFKA_CFLAGS)
+endif
+
+H_SRCS = darshan-common.h \
+         darshan.h \
+         darshan-config.h \
+         darshan-dxt.h \
+         darshan-ldms.h \
+         darshan-mofka.h \
+         uthash.h \
+         darshan-dynamic.h \
+         utlist.h \
+         darshan-heatmap.h
+
+EXTRA_DIST = $(H_SRCS) \
+             darshan-null.c \
+             darshan-posix.c \
+             darshan-stdio.c \
+             darshan-dxt.c \
+             darshan-ldms.c \
+             darshan-mofka.c \
+             darshan-mpiio.c \
+             darshan-pnetcdf.c \
+             darshan-pnetcdf-api.m4 \
+             darshan-hdf5.c \
+             darshan-bgq.c \
+             darshan-lustre.c \
+             darshan-mdhim.c \
+	     darshan-heatmap.c \
+	     darshan-dfs.c \
+	     darshan-daos.c
+

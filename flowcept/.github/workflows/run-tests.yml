@@ -1,0 +1,205 @@
+name: Main Tests
+on:
+  push:
+  schedule:
+    - cron: '0 12 * * *'  # Runs every day at 12 PM UTC (7 AM EST)
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ "3.11", "3.12" ]
+    timeout-minutes: 70
+    if: "!contains(github.event.head_commit.message, 'CI Bot')"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          # cache: "pip"
+
+      - name: Show OS Info
+        run: 'case "${OSTYPE:-}" in linux*) echo "OS Type: Linux"; (command -v lsb_release >/dev/null 2>&1 && lsb_release -a || cat /etc/os-release); uname -r ;; darwin*) echo "OS Type: macOS"; sw_vers || true; uname -r ;; *) echo "Unsupported OS type: ${OSTYPE:-unknown}" ;; esac'
+
+      - name: Upgrade pip
+        run: |  
+          python -m pip install --upgrade pip
+          python --version
+
+      - name: Install package and dependencies
+        run: |
+          pip install ruff
+          pip install .[docs]
+
+      - name: List installed packages
+        run: pip list
+
+      - name: Run linter and formatter checks using ruff
+        run: make checks
+
+      - name: Test basic example without any external service
+        env:
+          MONGO_ENABLED: false
+          LMDB_ENABLED: false
+        run: |
+          pip install .
+          pip list
+          flowcept --init-settings -y
+          python examples/start_here.py
+          pip uninstall flowcept -y 
+          rm ~/.flowcept/settings.yaml
+
+      - name: Start docker compose with redis
+        run: make services-mongo
+
+      - name: Test examples
+        run: bash .github/workflows/run_examples.sh examples true # with mongo
+
+      - name: Install all dependencies
+        run: |
+          python -m pip install .[all]
+          python -m pip install .[ml_dev]
+          # Reinstall local checkout last to avoid any resolver path picking an older published wheel.
+          python -m pip install --force-reinstall --no-deps .
+
+      - name: Init flowcept settings
+        run: |
+          flowcept --init-settings --full -y
+          flowcept --config-profile full-online -y
+
+      - name: Verify Flowcept import path
+        run: |
+          python - <<'PY'
+          import flowcept
+          print(flowcept.__file__)
+          PY
+
+      - name: List installed packages
+        run: pip list
+
+
+
+      - name: Test with pytest and redis
+        run: |
+          echo "=== Runtime facts before Redis pytest ==="
+          python - <<'PY'
+          import flowcept.configs as c
+          from flowcept.commons.settings_factory import get_settings
+          ml = get_settings("mlflow")
+          print(f"SETTINGS_PATH={c.SETTINGS_PATH}")
+          print(f"DB_FLUSH_MODE={c.DB_FLUSH_MODE}")
+          print(f"MQ_ENABLED={c.MQ_ENABLED}")
+          print(f"MQ_TYPE={c.MQ_TYPE}")
+          print(f"MQ_HOST={c.MQ_HOST}")
+          print(f"MQ_PORT={c.MQ_PORT}")
+          print(f"MONGO_ENABLED={c.MONGO_ENABLED}")
+          print(f"LMDB_ENABLED={c.LMDB_ENABLED}")
+          print(f"MLFLOW_WATCH_INTERVAL_SEC={ml.watch_interval_sec if ml else 'N/A'}")
+          print(f"MLFLOW_FILE_PATH={ml.file_path if ml else 'N/A'}")
+          PY
+          echo "=== Filesystem ==="
+          stat -f -c %T . || stat -f %T . || true
+          df -h . || true
+          echo "=== inotify limits ==="
+          cat /proc/sys/fs/inotify/max_user_watches || true
+          cat /proc/sys/fs/inotify/max_user_instances || true
+          pytest tests --timeout=600 --ignore=tests/adapters/test_tensorboard.py --ignore=tests/misc_tests/telemetry_test.py -k "not test_decorated_function_timed"
+
+      - name: Test decorator timing in isolated offline mode
+        run: |
+          flowcept --init-settings --full -y
+          flowcept --config-profile full-offline -y
+          pytest tests/instrumentation_tests/flowcept_task_decorator_test.py::DecoratorTests::test_decorated_function_timed -q
+
+      - name: Test decorator timing in isolated online mode
+        run: |
+          flowcept --init-settings --full -y
+          flowcept --config-profile full-online -y
+          pytest tests/instrumentation_tests/flowcept_task_decorator_test.py::DecoratorTests::test_decorated_function_timed -q
+
+      - name: Test telemetry in isolated telemetry mode
+        run: |
+          flowcept --init-settings --full -y
+          flowcept --config-profile full-telemetry -y
+          pytest tests/misc_tests/telemetry_test.py -q
+
+      - name: Test notebooks with pytest and redis
+        run: |
+          flowcept --init-settings --full -y
+          flowcept --config-profile full-online -y
+          make tests-notebooks
+
+      - name: Shut down docker compose
+        run: make services-stop-mongo
+      - name: Clean up
+        run: |
+          make clean
+          test -d /home/runner/runners/ && find /home/runner/runners/ -type f -name "*.log" -exec sh -c 'echo {}; >"{}"' \; || true
+
+      - name: Start docker compose with kafka
+        run: docker compose -f deployment/compose-kafka.yml up -d
+
+      - name: Wait for one minute
+        run: sleep 60
+
+      - name: Check liveness
+        run: |
+          export MQ_TYPE=kafka
+          export MQ_PORT=9092
+          python -c 'from flowcept.configs import MQ_TYPE, MQ_PORT; print(f"MQ_TYPE={MQ_TYPE}"); print(f"MQ_PORT={MQ_PORT}")'
+          python -c 'from flowcept import Flowcept; assert Flowcept.services_alive()'
+
+      - name: Run tests with kafka
+        run: |
+          export MQ_TYPE=kafka
+          export MQ_PORT=9092
+          echo "=== Runtime facts before Kafka pytest ==="
+          python - <<'PY'
+          import flowcept.configs as c
+          from flowcept.commons.settings_factory import get_settings
+          ml = get_settings("mlflow")
+          print(f"SETTINGS_PATH={c.SETTINGS_PATH}")
+          print(f"DB_FLUSH_MODE={c.DB_FLUSH_MODE}")
+          print(f"MQ_ENABLED={c.MQ_ENABLED}")
+          print(f"MQ_TYPE={c.MQ_TYPE}")
+          print(f"MQ_HOST={c.MQ_HOST}")
+          print(f"MQ_PORT={c.MQ_PORT}")
+          print(f"MONGO_ENABLED={c.MONGO_ENABLED}")
+          print(f"LMDB_ENABLED={c.LMDB_ENABLED}")
+          print(f"MLFLOW_WATCH_INTERVAL_SEC={ml.watch_interval_sec if ml else 'N/A'}")
+          print(f"MLFLOW_FILE_PATH={ml.file_path if ml else 'N/A'}")
+          PY
+          echo "=== Filesystem ==="
+          stat -f -c %T . || stat -f %T . || true
+          df -h . || true
+          echo "=== inotify limits ==="
+          cat /proc/sys/fs/inotify/max_user_watches || true
+          cat /proc/sys/fs/inotify/max_user_instances || true
+          pytest tests --timeout=600 --ignore=tests/adapters/test_tensorboard.py --ignore=tests/misc_tests/telemetry_test.py -k "not test_decorated_function_timed"
+
+      - name: Test telemetry in isolated telemetry mode with kafka
+        run: |
+          export MQ_TYPE=kafka
+          export MQ_PORT=9092
+          flowcept --init-settings --full -y
+          flowcept --config-profile full-telemetry -y
+          pytest tests/misc_tests/telemetry_test.py -q
+
+      - name: Stop docker compose with kafka
+        run: docker compose -f deployment/compose-kafka.yml down
+
+      - name: Clean up
+        run: |
+          make clean
+          test -d /home/runner/runners/ && find /home/runner/runners/ -type f -name "*.log" -exec sh -c 'echo {}; >"{}"' \; || true
+          docker image prune -a -f
+
+      - name: List large files
+        run: find . -type f -exec du -h {} + | sort -h

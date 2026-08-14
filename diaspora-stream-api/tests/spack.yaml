@@ -1,0 +1,35 @@
+spack:
+  specs:
+  - cmake
+  - nlohmann-json
+  - nlohmann-json-schema-validator
+  - py-coverage
+  - py-pybind11
+  - catch2
+  - tclap
+  - mpich
+  - spdlog
+  - mochi-thallium
+  - yaml-cpp
+#  repos:
+#    mochi:
+#      git: https://github.com/mochi-hpc/mochi-spack-packages.git
+  concretizer:
+    unify: true
+    reuse: true
+  modules:
+    prefix_inspections:
+      lib: [LD_LIBRARY_PATH]
+      lib64: [LD_LIBRARY_PATH]
+  packages:
+    catch2:
+      require: "@3.6.0:"
+    nlohmann-json-schema-validator:
+      require: "@2.3.0:"
+#  mirrors:
+#    mochi-buildcache:
+#      url: oci://ghcr.io/mochi-hpc/mochi-spack-buildcache
+#      signed: false
+#  config:
+#    install_tree:
+#      padded_length: 128

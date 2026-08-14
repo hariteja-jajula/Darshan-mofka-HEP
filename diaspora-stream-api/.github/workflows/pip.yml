@@ -1,0 +1,42 @@
+name: Build with pip
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
+
+jobs:
+  pip-install:
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install cmake
+      run: |
+        sudo apt install -y cmake
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Create virtual env
+      run: |
+        python -m venv .venv
+        . .venv/bin/activate
+        pip install -r requirements.txt
+
+    - name: Build the code using pip
+      run: |
+        . .venv/bin/activate
+        pip install .
+
+    - name: Test import
+      run: |
+        . .venv/bin/activate
+        python -c "import pydiaspora_stream_api"

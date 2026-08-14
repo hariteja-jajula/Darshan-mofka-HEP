@@ -1,0 +1,89 @@
+Notes on how to release a new version of Darshan
+2024-05
+-----------------------
+
+ 1) check Darshan GitHub to see if there are any pending issues and/or PRs
+    for the release milestone
+    (https://github.com/darshan-hpc/darshan/milestones)
+    - close the milestone, move unfinished issues to appropriate milestone
+ 2) check for any problems in recent CI workflows on the main GitHub and
+    on the ALCF GitLab CI instance
+ 3) make sure that documentation on Read the Docs is up to date.  See
+    instructions in readthedocs/DEVELOPER_NOTES.md
+ 4) update file "ChangeLog", if needed (browse git log since last release)
+    - When using Github release mechanism, it has a nice feature to generated a
+      list of merged PRs, which can be copied to file ChangeLog. See 12) below.
+      You may want to first create a dummy release to see this note first.
+    - commit
+ 5) update version number in top-level darshan.version file
+    - See below for the guideline of setting the version number.
+    - commit
+ 6) follow checklist for corresponding release of PyDarshan
+    - found at darshan-util/pydarshan/RELEASE-CHECKLIST-PyDarshan.txt
+    - NOTE: new PyDarshan version must be released with every Darshan release
+ 7) use "git status" to make sure that all changes have been committed and
+    pushed to origin/main
+ 8) manually install Darshan and run regression tests on a workstation and/or
+    an HPC system (e.g., ALCF Polaris)
+    - after installing, run the following in darshan-test/regression:
+      ./run-all.sh <darshan_install_prefix> <scratch_dir> <system_env_profile>
+ 9) copy example output file (from the above testing) and commit in
+    the darshan-logs repo in the darshan_logs/release_logs/ directory
+    a. log into polaris.alcf.anl.gov
+    b. clone darshan repo, say into $HOME/Darshan/Github/darshan
+    c. module swap PrgEnv-nvidia PrgEnv-gnu
+    d. install Darshan, say into folder $HOME/Darshan/Github/DEV
+    e. cd $HOME/Darshan/Github/darshan/darshan-test/regression/
+    f. ./run-all.sh $HOME/Darshan/Github/DEV $HOME/Darshan/TEST alcf-polaris-cray-module
+    g. clone darshan-logs repo, say into $HOME/Darshan/Github/darshan-logs
+    h. cd $HOME/Darshan/Github/darshan-logs/darshan_logs/release_logs
+    i. cp $HOME/Darshan/TEST/mpi-io-test.darshan mpi-io-test-x86_64-3.5.0.darshan
+    j. Create a new PR
+10) make a tag for the release according to instructions at
+    http://git-scm.com/book/en/Git-Basics-Tagging
+    - example (annotated tag, pushed to repo):
+      git tag -a 3.5.0 -m 'Darshan 3.5.0'
+      git push origin 3.5.0
+    - NOTE: update the above to reflect the tag format needed by Read the
+      Docs
+11) manually create the release tarball
+    - Run "configure" to generate necessary autotools files
+    - Run "make dist", which generates a tar ball, named darshan-3.5.0.tar.gz
+12) create a new release on github.com
+    - On Darshan repo home, click "Create a new release" on the right.
+    - Select Tag to be "3.5.0"
+    - Add release title to be "3.5.0". This must be in the form of
+      MAJOR.MINOR.PATCH
+    - Under Release notes, select Previous tag, say "3.4.7.1"
+    - Click "Generate release notes", which will populate a list of PRs merged
+      since previous tag.
+    - Edit the populated release note to remove or add contents if necessary.
+    - Click "Attach binaries" and add the release tar ball created in Step 11
+      above.
+    - Click "Save draft" to edit later. (Drafts will not be seen by the public.)
+      In case a draft needs updates, use git commands below.
+      + `git tag -f 3.5.0 HEAD` to force an update to an existing tag.
+      + `git push -f origin 3.5.0` to force pushed to remote repo at github.com
+      + Then visit Darshan repo at github.com and edit the draft.
+    - When ready for the release, click "Publish release" to make a release.
+13) update download page on darshan web site: www.mcs.anl.gov/darshan/download
+14) update darshan-runtime and darshan-util Spack packages with new release
+    - consider whether new variants should be exposed based on new features
+      enabled by the release
+    - commit, submit PR to upstream Spack repository
+15) announce on web page (new post) and mailing list
+
+----
+## Setting the release version number
+
+Follow the guideline provided by [Semantic Versioning](https://semver.org)
+when setting the version number for new releases.
+
+* Software Semantic Versioning
+  + A version number is in a form of MAJOR.MINOR.PATCH
+    1. MAJOR version when you make incompatible API changes
+    2. MINOR version when you add functionality in a backward compatible manner
+    3. PATCH version when you make backward compatible bug fixes
+  + A pre-release version MAY be denoted by appending a hyphen, for example,
+    1.0.0-alpha.
+

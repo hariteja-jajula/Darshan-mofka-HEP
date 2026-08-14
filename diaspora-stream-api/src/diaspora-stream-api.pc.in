@@ -1,0 +1,11 @@
+prefix=@DEST_DIR@
+exec_prefix=${prefix}
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: diaspora-stream-api
+Description: API for event streaming services for HPC
+Version: @DIASPORA_API_VERSION@
+
+Libs: -L${libdir} @DIASPORA_API_PRIVATE_LIBS@ -lstdc++
+Cflags: -I${includedir}

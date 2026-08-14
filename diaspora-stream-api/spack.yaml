@@ -1,0 +1,23 @@
+spack:
+  specs:
+  - cmake
+  - nlohmann-json
+  - nlohmann-json-schema-validator
+  - py-pybind11
+  - catch2
+  - tclap
+  - mpi
+  - spdlog
+  - yaml-cpp
+  concretizer:
+    unify: true
+    reuse: true
+  modules:
+    prefix_inspections:
+      lib: [LD_LIBRARY_PATH]
+      lib64: [LD_LIBRARY_PATH]
+  packages:
+    catch2:
+      require: "@3.6.0:"
+    nlohmann-json-schema-validator:
+      require: "@2.3.0:"

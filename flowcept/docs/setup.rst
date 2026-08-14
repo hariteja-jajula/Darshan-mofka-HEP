@@ -1,0 +1,384 @@
+Setup and Installation
+=======================
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+
+Flowcept can be installed in multiple ways, depending on your needs.
+
+Default Installation
+---------------------
+
+To install Flowcept with its basic dependencies from `PyPI <https://pypi.org/project/flowcept/>`_, run:
+
+.. code-block:: bash
+
+   pip install flowcept
+
+This installs the minimal Flowcept package, **not** including MongoDB, Redis, MCP, or any adapter-specific dependencies.
+
+Installing Specific Adapters and Additional Dependencies
+---------------------------------------------------------
+
+Flowcept integrates with several tools and services, but you should **only install what you actually need**.  
+Good practice is to cherry-pick the extras relevant to your workflow instead of installing them all.
+
+.. code-block:: bash
+
+   pip install flowcept[mongo]           # MongoDB support
+   pip install flowcept[mlflow]          # MLflow adapter
+   pip install flowcept[dask]            # Dask adapter
+   pip install flowcept[tensorboard]     # TensorBoard adapter
+   pip install flowcept[kafka]           # Kafka message queue
+   pip install flowcept[nvidia]          # NVIDIA GPU runtime capture
+   pip install flowcept[telemetry]       # CPU/GPU/memory telemetry capture
+   pip install flowcept[lmdb]            # LMDB lightweight database
+   pip install flowcept[mqtt]            # MQTT support
+   pip install flowcept[llm_agent]       # MCP agent, LangChain, Streamlit integration
+   pip install flowcept[llm_google]      # Google GenAI + Flowcept agent support
+   pip install flowcept[llm_agent_audio] # MCP agent with audio enabled (tts).
+   pip install flowcept[analytics]       # Extra analytics (seaborn, plotly, scipy)
+   pip install flowcept[dev]             # Developer dependencies (docs, tests, lint, etc.)
+
+Installing with Common Runtime Bundle
+--------------------------------------
+
+.. code-block:: bash
+
+   pip install flowcept[extras]
+
+The ``extras`` group is a convenience shortcut that bundles the most common runtime dependencies.  
+It is intended for users who want a fairly complete, but not maximal, Flowcept environment.
+
+You might choose ``flowcept[extras]`` if:
+
+- You want Flowcept to run out-of-the-box with Redis, telemetry, and MongoDB  
+- You prefer not to install each extra one by one  
+
+.. warning::
+
+   If you only need one of these features, install it individually.
+
+Install all optional dependencies at once
+------------------------------------------
+
+Flowcept provides a combined ``all`` extra, but installing everything into a single environment is **not recommended for users**.  
+Many of these dependencies are unrelated and should not be mixed in the same runtime.  
+This option is only intended for Flowcept developers who need to test across all adapters and integrations.
+
+.. code-block:: bash
+
+   pip install flowcept[all]
+
+Installing from Source
+-----------------------
+
+To install Flowcept from the source repository:
+
+.. code-block:: bash
+
+   git clone https://github.com/ORNL/flowcept.git
+   cd flowcept
+   pip install .
+
+You can then install specific dependencies similarly as above:
+
+.. code-block:: bash
+
+   pip install .[optional_dependency_name]
+
+This follows the same pattern as above, allowing for a customized installation from source.
+
+Setup
+-----
+
+The :doc:`quick_start` example works with just ``pip install flowcept``, no extra setup is required.
+
+For online queries or distributed capture, Flowcept relies on two optional components:
+
+- **Message Queue (MQ)** — message broker / pub-sub / data stream  
+- **Database (DB)** — persistent storage for historical queries  
+
+Message Queue (MQ)
+-------------------
+
+- Required for anything beyond Quickstart  
+- Flowcept publishes provenance data to the MQ during workflow runs  
+- Developers can subscribe with custom consumers (see `simple consumer example <https://github.com/ORNL/flowcept/blob/main/examples/consumers/simple_consumer.py>`_)  
+- You can monitor or print messages in motion using:
+
+.. code-block:: bash
+
+   flowcept --stream-messages --print
+
+Supported MQs:
+
+- `Redis <https://redis.io>`_ → **default**, lightweight, works on Linux, macOS, Windows, and HPC (tested on Frontier and Summit)  
+- `Kafka <https://kafka.apache.org>`_ → for distributed environments or if Kafka is already in your stack  
+- `Mofka <https://mofka.readthedocs.io>`_ → optimized for HPC runs  
+
+Database (DB)
+--------------
+
+- **Optional**, but required for:
+  - Persisting provenance beyond MQ memory/disk buffers  
+  - Running complex analytical queries on historical data  
+
+Supported DBs:
+
+- `MongoDB <https://www.mongodb.com>`_ → default, efficient bulk writes + rich query support  
+- `LMDB <https://lmdb.readthedocs.io>`_ → lightweight, no external service, basic query capabilities  
+
+Notes
+-----
+
+- Without a DB:
+  - Provenance remains in the MQ only (persistence not guaranteed)  
+  - Complex historical queries are unavailable  
+- Flowcept’s architecture is modular: other MQs and DBs (graph, relational, etc.) can be added in the future  
+- Deployment examples for MQ and DB are provided in the `deployment <https://github.com/ORNL/flowcept/tree/main/deployment>`_ directory  
+
+Downloading and Starting External Services (MQ or DB)
+------------------------------------------------------
+
+Flowcept uses external services for message queues (MQ) and databases (DB). You can start them with Docker Compose, plain containers, or directly on your host.
+
+Using Docker Compose (recommended)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+We provide a `Makefile <https://github.com/ORNL/flowcept/blob/main/deployment/Makefile>`_ with shortcuts:
+
+1. **Redis only (no DB)**: ``make services``   (LMDB can be used in this setup as a lightweight DB)  
+2. **Redis + MongoDB**: ``make services-mongo``  
+3. **Kafka + MongoDB**: ``make services-kafka``  
+4. **Mofka only (no DB)**: ``make services-mofka``  
+
+To customize, edit the YAML files in `deployment <https://github.com/ORNL/flowcept/tree/main/deployment>`_ and run:
+
+.. code-block:: bash
+
+   docker compose -f deployment/<compose-file>.yml up -d
+
+Using Docker (without Compose)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+See the deployment compose files for expected images and configurations.  
+You can adapt them to your environment and use standard ``docker pull / run / exec`` commands.
+
+Running on the Host (no containers)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+1. Install binaries for the service you need:  
+
+   - **macOS**: via `Homebrew <https://brew.sh>`_  
+
+     .. code-block:: bash
+
+        brew install redis
+        brew services start redis
+
+   - **Linux**: via your distro package manager (``apt``, ``dnf``, ``yum``, etc.)  
+   - **HPC (non-root)**: download prebuilt binaries for your architecture and run them from a directory with ``r+w`` permissions  
+   - **Windows**: use `WSL <https://learn.microsoft.com/en-us/windows/wsl/install>`_ to run a Linux distro  
+
+2. Start services normally (``redis-server``, ``mongod``, ``kafka-server-start.sh``, etc.).
+
+Flowcept Settings File
+=======================
+
+Flowcept uses a settings file for configuration.
+
+- To create a minimal settings file (**recommended**):
+  use:
+
+.. code-block:: bash
+
+   flowcept --init-settings
+
+Creates ``~/.flowcept/settings.yaml``.
+
+- To create a full settings file with all options:
+  use:
+
+.. code-block:: bash
+
+   flowcept --init-settings --full
+
+Also creates ``~/.flowcept/settings.yaml``.
+
+Recommended pattern:
+
+.. code-block:: bash
+
+   flowcept --init-settings --full -y
+   flowcept --config-profile full-online -y
+
+Meaning:
+
+- ``flowcept --init-settings``: minimal file from ``DEFAULT_SETTINGS``
+- ``flowcept --init-settings --full``: copy ``resources/sample_settings.yaml``
+- ``flowcept --config-profile ...``: apply a runtime overlay to the existing file
+
+What You Can Configure
+-----------------------
+
+- Message queue and database routes, ports, and paths  
+- MCP agent ports and LLM API keys  
+- Buffer sizes and flush settings  
+- Telemetry capture settings  
+- Instrumentation and PyTorch details  
+- Log levels  
+- Data observability adapters  
+- And more (see `example file <https://github.com/ORNL/flowcept/blob/main/resources/sample_settings.yaml>`_)  
+
+Common profiles:
+
+- ``full-online``: Redis MQ + Redis KV + Mongo + online flush
+- ``full-offline``: offline flush + dump buffer + MQ/KV/DB disabled
+- ``mq-only``: MQ only, no KV/Mongo/LMDB
+- ``mq-only-no-flush``: MQ enabled, tasks accumulate locally and are bulk-published to MQ in a single end-of-run flush; also dumps to local JSONL; use with ``Flowcept(check_safe_stops=False)``
+- ``full-telemetry``: telemetry on except GPU
+
+Adapter flags are additive:
+
+.. code-block:: bash
+
+   flowcept --init-settings --dask -y
+   flowcept --init-settings --mlflow -y
+   flowcept --init-settings --tensorboard -y
+
+Custom Settings File
+---------------------
+
+Flowcept looks for its settings in the following order:
+
+1. Environment variable ``FLOWCEPT_SETTINGS_PATH`` — if set, Flowcept will use this path
+2. ``~/.flowcept/settings.yaml`` — created by ``flowcept --init-settings``  
+3. Default sample file — `sample_settings.yaml <https://github.com/ORNL/flowcept/blob/main/resources/sample_settings.yaml>`_  
+
+Environment Variables
+---------------------
+
+.. note::
+   **Precedence:** Environment variables override values in
+   ``~/.flowcept/settings.yaml`` and packaged sample settings.
+   If ``FLOWCEPT_USE_DEFAULT=true``, Flowcept runs in strict default mode:
+   external settings files and runtime env overrides (MQ/DB host/ports/toggles, etc.)
+   are ignored.
+
+Short version:
+
+- settings file controls the normal behavior
+- profiles modify the settings file
+- environment variables can still override those values at runtime
+
+General
+~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 72
+
+   * - Variable
+     - Purpose / Default
+   * - ``FLOWCEPT_USE_DEFAULT``
+     - If ``true``, use built-in defaults in strict mode. External settings files and runtime env overrides are ignored. Default ``false``.
+   * - ``FLOWCEPT_SETTINGS_PATH``
+     - Path to a YAML settings file. If unset, Flowcept uses ``~/.flowcept/settings.yaml`` or the packaged sample.
+
+Message Queue (MQ)
+~~~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 72
+
+   * - Variable
+     - Purpose / Default
+   * - ``MQ_ENABLED``
+     - Enable MQ publishing. Accepts string values. Recommended: ``true`` or ``false``. Default comes from settings file (often ``False``).
+   * - ``MQ_TYPE``
+     - MQ kind (e.g., ``redis``). Default ``redis``.
+   * - ``MQ_CHANNEL``
+     - Channel/topic name. Default ``interception``.
+   * - ``MQ_HOST``
+     - MQ host. Default ``localhost``.
+   * - ``MQ_PORT``
+     - MQ port (int). Default ``6379``.
+   * - ``MQ_URI``
+     - Full connection URI. Overrides host/port if set. Default unset.
+
+Key-Value DB (KVDB)
+~~~~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 72
+
+   * - Variable
+     - Purpose / Default
+   * - ``KVDB_HOST``
+     - KV host. Default ``localhost``.
+   * - ``KVDB_PORT``
+     - KV port (int). Default ``6379``.
+   * - ``KVDB_URI``
+     - Full connection URI. Default unset.
+
+MongoDB
+~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 72
+
+   * - Variable
+     - Purpose / Default
+   * - ``MONGO_ENABLED``
+     - Enable MongoDB persistence. Parsed as boolean: ``"true"`` → enabled, anything else → disabled. Default from settings.
+   * - ``MONGO_URI``
+     - Full MongoDB URI. If set, overrides host/port. Default unset.
+   * - ``MONGO_HOST``
+     - Mongo host. Default ``localhost``.
+   * - ``MONGO_PORT``
+     - Mongo port (int). Default ``27017``.
+
+LMDB
+~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 72
+
+   * - Variable
+     - Purpose / Default
+   * - ``LMDB_ENABLED``
+     - Enable LMDB persistence. Parsed as boolean: ``"true"`` to enable. Default from settings.
+   * - ``LMDB_PATH``
+     - Override the LMDB database directory. Default from ``databases.lmdb.path`` in settings (``flowcept_lmdb`` if unset).
+
+Agent / MCP
+~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 72
+
+   * - Variable
+     - Purpose / Default
+   * - ``AGENT_AUDIO``
+     - Enable agent audio. String accepted. Interpreted truthy for ``1``, ``true``, ``yes``, ``y``, ``t`` (case-insensitive). Default from settings (often ``false``).
+   * - ``AGENT_HOST``
+     - MCP host. Default ``localhost``.
+   * - ``AGENT_PORT``
+     - MCP port (int). Default ``8000``.
+
+Parsing Notes
+~~~~~~~~~~~~~
+
+- Ports (``*_PORT``) are cast to integers.
+- ``MONGO_ENABLED`` and ``LMDB_ENABLED`` are parsed strictly as booleans
+  using case-insensitive comparison to ``"true"``.
+- ``MQ_ENABLED`` is read as a string and used as-is; prefer ``true`` or ``false`` to avoid
+  surprises when checking truthiness in Python.

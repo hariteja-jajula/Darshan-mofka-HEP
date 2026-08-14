@@ -1,0 +1,19 @@
+[build-system]
+requires = ["scikit-build-core[pyproject]", "pybind11"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "diaspora-stream-api"
+version = "0.5.7"
+description = "Python bindings for the diaspora-stream-api C++ library"
+authors = [{ name = "Matthieu Dorier", email = "mdorier@anl.gov" }]
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.7"
+dependencies = []
+
+[tool.scikit-build]
+wheel.packages = ["python/diaspora_stream"]
+build-dir = "build"
+cmake.minimum-version = "3.15"
+cmake.args = ["-DENABLE_PYTHON=ON"]

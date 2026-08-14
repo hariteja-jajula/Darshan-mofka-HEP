@@ -1,0 +1,18 @@
+# START CROSS DRIVER CONFIG
+drivers:
+  local:
+    type: files
+    options:
+      root_path: /data/local
+  remote:
+    type: octopus
+    options:
+      kafka:
+        bootstrap.servers: "kafka:9092"
+
+forward:
+  - from: local/source-topic
+    to:   remote/dest-topic
+  - from: local/topic-a
+    to:   remote/topic-b
+# END CROSS DRIVER CONFIG
